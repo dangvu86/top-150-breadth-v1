@@ -3,37 +3,17 @@ import io
 import requests
 import time
 from datetime import datetime
-from vnstock import Vnstock
 
 def load_vnindex_data():
-    """Load VNINDEX data using vnstock library with retry logic and multiple sources"""
-    # Get historical data from 2022-10-31 to today
-    start_date = '2022-10-31'
-    end_date = datetime.now().strftime('%Y-%m-%d')
+    """Load VNINDEX data from Google Drive CSV file"""
+    # Google Drive file ID for VNINDEX OHLCV data
+    file_id = '10TXB0G2HuCbMEC1nbB-Kj2eA33mGjQFn'
+    url = f'https://drive.google.com/uc?export=download&id={file_id}'
     
-    vnstock = Vnstock()
-    sources = ['VCI', 'TCBS']  # Try multiple sources (VCI first as it's more reliable)
+    df = pd.read_csv(url)
     
-    df = None
-    last_error = None
-    
-    for source in sources:
-        for attempt in range(2):  # Retry 2 times per source
-            try:
-                stock_obj = vnstock.stock(symbol='VNINDEX', source=source)
-                df = stock_obj.quote.history(start=start_date, end=end_date, interval='1D')
-                if df is not None and not df.empty:
-                    break
-            except Exception as e:
-                last_error = e
-                time.sleep(1)  # Wait before retry
-                continue
-        
-        if df is not None and not df.empty:
-            break
-    
-    if df is None or df.empty:
-        raise ValueError(f"No data returned from any source. Last error: {last_error}")
+    if df.empty:
+        raise ValueError("No data returned from Google Drive file")
 
     # Rename columns to match expected format
     df = df.rename(columns={
