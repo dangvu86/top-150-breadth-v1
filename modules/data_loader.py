@@ -1,22 +1,39 @@
 import pandas as pd
 import io
 import requests
+import time
 from datetime import datetime
 from vnstock import Vnstock
 
 def load_vnindex_data():
-    """Load VNINDEX data using vnstock library (VCI source)"""
-    # Use vnstock with VCI source (TCBS API no longer works)
-    stock = Vnstock().stock(symbol='VNINDEX', source='VCI')
-    
+    """Load VNINDEX data using vnstock library with retry logic and multiple sources"""
     # Get historical data from 2022-10-31 to today
     start_date = '2022-10-31'
     end_date = datetime.now().strftime('%Y-%m-%d')
     
-    df = stock.quote.history(start=start_date, end=end_date, interval='1D')
-
-    if df.empty:
-        raise ValueError("No data returned from VCI API")
+    vnstock = Vnstock()
+    sources = ['VCI', 'TCBS']  # Try multiple sources (VCI first as it's more reliable)
+    
+    df = None
+    last_error = None
+    
+    for source in sources:
+        for attempt in range(2):  # Retry 2 times per source
+            try:
+                stock_obj = vnstock.stock(symbol='VNINDEX', source=source)
+                df = stock_obj.quote.history(start=start_date, end=end_date, interval='1D')
+                if df is not None and not df.empty:
+                    break
+            except Exception as e:
+                last_error = e
+                time.sleep(1)  # Wait before retry
+                continue
+        
+        if df is not None and not df.empty:
+            break
+    
+    if df is None or df.empty:
+        raise ValueError(f"No data returned from any source. Last error: {last_error}")
 
     # Rename columns to match expected format
     df = df.rename(columns={
