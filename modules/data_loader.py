@@ -2,37 +2,33 @@ import pandas as pd
 import io
 import requests
 from datetime import datetime
+from vnstock import Vnstock
 
 def load_vnindex_data():
-    """Load VNINDEX data from TCBS API"""
-    ticker = 'VNINDEX'
-    from_ts = int(pd.Timestamp('2022-10-31').timestamp())
-    to_ts = int(datetime.now().timestamp())
+    """Load VNINDEX data using vnstock library (VCI source)"""
+    # Use vnstock with VCI source (TCBS API no longer works)
+    stock = Vnstock().stock(symbol='VNINDEX', source='VCI')
+    
+    # Get historical data from 2022-10-31 to today
+    start_date = '2022-10-31'
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    
+    df = stock.quote.history(start=start_date, end=end_date, interval='1D')
 
-    url = f'https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker={ticker}&type=index&resolution=D&from={from_ts}&to={to_ts}'
+    if df.empty:
+        raise ValueError("No data returned from VCI API")
 
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-
-    data = response.json()
-    records = data.get('data', [])
-
-    if not records:
-        raise ValueError("No data returned from TCBS API")
-
-    df = pd.DataFrame(records)
-    df['tradingDate'] = pd.to_datetime(df['tradingDate']).dt.tz_localize(None)
-
-    # Filter by date range (TCBS API ignores to_ts parameter)
-    df = df[(df['tradingDate'] >= '2022-10-31') & (df['tradingDate'] <= datetime.now())]
-
-    df['pct_change'] = df['close'].pct_change() * 100
-
+    # Rename columns to match expected format
     df = df.rename(columns={
-        'tradingDate': 'Ngày',
-        'close': 'Giá đóng cửa',
-        'pct_change': '% Thay đổi'
+        'time': 'Ngày',
+        'close': 'Giá đóng cửa'
     })
+    
+    # Ensure datetime format
+    df['Ngày'] = pd.to_datetime(df['Ngày']).dt.tz_localize(None)
+
+    # Calculate percentage change
+    df['% Thay đổi'] = df['Giá đóng cửa'].pct_change() * 100
 
     df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
     df = df.sort_values('Ngày').reset_index(drop=True)
