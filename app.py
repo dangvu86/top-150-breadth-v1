@@ -308,8 +308,9 @@ except Exception as e:
 
 # Auto-upload to Google Doc (if configured)
 try:
-    if "GOOGLE_DOC_ID" in st.secrets:
-        doc_id = st.secrets["GOOGLE_DOC_ID"]
+    if "GOOGLE_DOC_FOLDER_ID" in st.secrets:
+        folder_id = st.secrets["GOOGLE_DOC_FOLDER_ID"]
+        doc_name = st.secrets.get("GOOGLE_DOC_NAME", "Market Breadth Data")
 
         # Prepare formatted data for upload
         export_columns = ['Date', 'VnIndex', 'VNI RSI21', 'VNI RSI70', 'Breadth - % > MA50', 'NHNL RSI', 'MFI RSI', 'A/D RSI']
@@ -331,7 +332,7 @@ try:
         # Show upload status in sidebar
         with st.sidebar:
             with st.spinner("Uploading to Google Doc..."):
-                success = upload_to_google_doc(df_upload_doc, doc_id)
+                success = upload_to_google_doc(df_upload_doc, folder_id, doc_name)
                 if success:
                     st.success("✅ Data uploaded to Google Doc")
                 else:
