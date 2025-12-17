@@ -12,6 +12,7 @@ from modules.data_loader import load_vnindex_data, load_price_volume_data
 from modules.indicators import calculate_all_indicators
 from modules.winrate_api import fetch_winrate_data, fetch_breakout_data
 from modules.google_sheet_uploader import upload_to_google_sheet, format_google_sheet
+from modules.google_docs_uploader import upload_to_google_doc
 
 # Page config
 st.set_page_config(
@@ -292,24 +293,52 @@ try:
             if col in df_upload.columns:
                 df_upload[col] = df_upload[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "")
 
-        # Keep same sort order as display table (descending - newest first)
-        # No need to sort again as display_df is already sorted descending
-
         # Show upload status in sidebar
         with st.sidebar:
             with st.spinner("Uploading to Google Sheet..."):
                 success = upload_to_google_sheet(df_upload, sheet_id)
                 if success:
                     st.success("✅ Data uploaded to Google Sheet")
-                    # Apply formatting
                     format_google_sheet(sheet_id)
                 else:
                     st.warning("⚠️ Failed to upload to Google Sheet - check logs")
 except Exception as e:
-    # Show error message for debugging
     with st.sidebar:
         st.error(f"❌ Google Sheet upload error: {str(e)}")
-        st.write("Check if sheet is shared with service account")
+
+# Auto-upload to Google Doc (if configured)
+try:
+    if "GOOGLE_DOC_ID" in st.secrets:
+        doc_id = st.secrets["GOOGLE_DOC_ID"]
+
+        # Prepare formatted data for upload
+        export_columns = ['Date', 'VnIndex', 'VNI RSI21', 'VNI RSI70', 'Breadth - % > MA50', 'NHNL RSI', 'MFI RSI', 'A/D RSI']
+        export_columns = [col for col in export_columns if col in display_df.columns]
+        df_upload_doc = display_df[export_columns].copy()
+
+        # Format numeric columns
+        numeric_1decimal_cols = ['VnIndex', 'VNI RSI21', 'VNI RSI70', 'MFI RSI', 'A/D RSI', 'NHNL RSI']
+        for col in numeric_1decimal_cols:
+            if col in df_upload_doc.columns:
+                df_upload_doc[col] = df_upload_doc[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "")
+
+        # Format percentage columns
+        percentage_cols = ['Breadth - % > MA50']
+        for col in percentage_cols:
+            if col in df_upload_doc.columns:
+                df_upload_doc[col] = df_upload_doc[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "")
+
+        # Show upload status in sidebar
+        with st.sidebar:
+            with st.spinner("Uploading to Google Doc..."):
+                success = upload_to_google_doc(df_upload_doc, doc_id)
+                if success:
+                    st.success("✅ Data uploaded to Google Doc")
+                else:
+                    st.warning("⚠️ Failed to upload to Google Doc - check logs")
+except Exception as e:
+    with st.sidebar:
+        st.error(f"❌ Google Doc upload error: {str(e)}")
 
 # Build column config dynamically
 column_config = {
