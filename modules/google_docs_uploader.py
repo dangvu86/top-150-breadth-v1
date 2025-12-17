@@ -99,10 +99,10 @@ def delete_doc_by_id(drive_service, doc_id):
 
 def create_new_doc(docs_service, drive_service, title, folder_id):
     """
-    Create a new Google Doc in a specific folder
+    Create a new Google Doc directly in a specific folder using Drive API
     
     Args:
-        docs_service: Google Docs API service
+        docs_service: Google Docs API service (not used but kept for consistency)
         drive_service: Google Drive API service
         title: Document title
         folder_id: Folder ID to create doc in
@@ -111,24 +111,19 @@ def create_new_doc(docs_service, drive_service, title, folder_id):
         str: New document ID or None on error
     """
     try:
-        # Create doc using Docs API
-        doc = docs_service.documents().create(body={'title': title}).execute()
-        new_doc_id = doc.get('documentId')
+        # Create doc directly in folder using Drive API
+        file_metadata = {
+            'name': title,
+            'mimeType': 'application/vnd.google-apps.document',
+            'parents': [folder_id]
+        }
         
-        # Move to specified folder
-        if folder_id and new_doc_id:
-            # Get current parents
-            file = drive_service.files().get(fileId=new_doc_id, fields='parents').execute()
-            previous_parents = ",".join(file.get('parents', []))
-            
-            # Move to new folder
-            drive_service.files().update(
-                fileId=new_doc_id,
-                addParents=folder_id,
-                removeParents=previous_parents,
-                fields='id, parents'
-            ).execute()
+        file = drive_service.files().create(
+            body=file_metadata,
+            fields='id'
+        ).execute()
         
+        new_doc_id = file.get('id')
         return new_doc_id
         
     except Exception as e:
