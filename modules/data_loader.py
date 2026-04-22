@@ -64,21 +64,23 @@ def load_price_volume_data():
         '1XPZKnRDklQ1DOdVgncn71SLg1pfisQtV'   # 100 stocks
     ]
 
-    # Load and combine all files
+    # Load and combine all files - normalize date format per file
     dfs = []
     for file_id in file_ids:
         url = f"https://drive.google.com/uc?export=download&id={file_id}"
         df_temp = pd.read_csv(url)
+        # Normalize date: parse lenient then strip time component -> pure date (no time, no tz)
+        df_temp['date'] = pd.to_datetime(df_temp['date'], format='mixed', errors='coerce').dt.normalize()
         dfs.append(df_temp)
 
-    # Concatenate all dataframes
+    # Concatenate all dataframes (all dates now in consistent YYYY-MM-DD format)
     df = pd.concat(dfs, ignore_index=True)
+
+    # Drop rows with invalid dates
+    df = df.dropna(subset=['date'])
 
     # Filter to keep only 200 stocks from original list
     df = df[df['symbol'].isin(stock_list_200)].copy()
-
-    # Convert date to datetime
-    df['date'] = pd.to_datetime(df['date'])
 
     # Calculate Matching Value = close price * volume
     df['Matching Value'] = df['close'] * df['volume']
